@@ -1,0 +1,66 @@
+-- LocalScript : StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- Création de la boîte de détection (une seule fois, elle ne meurt jamais)
+local box = Instance.new("Part")
+box.Name = "DetectionBox"
+box.Size = Vector3.new(10, 6, 10)
+box.Transparency = 0.9
+box.Anchored = true
+box.CanCollide = false
+box.CanQuery = false
+box.CanTouch = false
+box.Material = Enum.Material.Neon
+box.Color = Color3.fromRGB(255, 255, 0)
+box.Parent = workspace
+
+-- Variables pour le personnage actuel
+local rootPart = nil
+
+-- Fonction appelée à chaque (re)spawn
+local function onCharacterAdded(character)
+	rootPart = character:WaitForChild("HumanoidRootPart")
+end
+
+-- Gère le personnage actuel et les respawns futurs
+player.CharacterAdded:Connect(onCharacterAdded)
+if player.Character then
+	onCharacterAdded(player.Character)
+end
+
+-- Fonction pour trouver récursivement toutes les parts nommées "Coin_Server"
+local function findCoins(parent)
+	local results = {}
+	for _, obj in ipairs(parent:GetDescendants()) do
+		if obj:IsA("BasePart") and obj.Name == "Coin_Server" then
+			table.insert(results, obj)
+		end
+	end
+	return results
+end
+
+-- Boucle de détection : téléporte en continu toutes les pièces dans la boîte
+task.spawn(function()
+	while true do
+		-- On ne fait rien tant que le joueur n'est pas (ré)apparu
+		if rootPart and rootPart.Parent then
+			-- La boîte suit le joueur en permanence
+			box.CFrame = rootPart.CFrame
+
+			for _, coin in ipairs(findCoins(workspace)) do
+				local rel = box.CFrame:PointToObjectSpace(coin.Position)
+				local halfSize = box.Size / 2
+				if math.abs(rel.X) <= halfSize.X and math.abs(rel.Y) <= halfSize.Y and math.abs(rel.Z) <= halfSize.Z then
+					coin.CFrame = rootPart.CFrame
+				end
+			end
+		else
+			-- Joueur mort : on garde la boîte hors de vue plutôt que bloquée en l'air
+			box.CFrame = CFrame.new(0, -500, 0)
+		end
+
+		task.wait()
+	end
+end)
